@@ -1,0 +1,4 @@
+/proctreelint
+*.test
+*.out
+.DS_Store

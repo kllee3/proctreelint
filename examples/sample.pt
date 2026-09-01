@@ -1,0 +1,10 @@
+# pid   ppid  state  comm
+1       0     S      init
+100     1     S      sshd
+205     100   S      bash
+340     205   S      stress
+501     340   Z      stress-child
+610     501   S      grandchild-of-zombie
+9012    9012  S      loopy
+7777    4444  S      orphan-ish
+205     100   S      bash
