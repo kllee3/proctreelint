@@ -79,13 +79,13 @@ ps -eo pid,ppid,state,comm | tail -n +2 | go run . -
 | `duplicate-pid`          | the same pid defined more than once                             |
 | `unknown-parent`         | a ppid (other than 0) that no line in the input ever defines    |
 | `zombie-with-children`   | a process in state `Z` that still has children pointing at it   |
+| `parent-cycle`           | a ppid chain that loops back on itself over two or more hops    |
 
 ## What this doesn't do yet
 
-It doesn't detect cycles longer than one hop (A is B's parent, B is
-A's parent) - only direct self-parenting. It also doesn't know
-anything about real `/proc` semantics beyond what's in the four
-columns above; it lints the snapshot as given, not the live system.
+It doesn't know anything about real `/proc` semantics beyond what's
+in the four columns above; it lints the snapshot as given, not the
+live system.
 
 ## License
 

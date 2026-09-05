@@ -125,6 +125,71 @@ func Lint(r io.Reader) ([]Finding, error) {
 		}
 	}
 
+	// Cycle detection: walk each pid's ppid chain looking for a repeat.
+	// Each process has exactly one parent pointer, so this is really a
+	// linked list per pid rather than a general graph - the standard
+	// white/gray/black DFS coloring still applies, it just never needs
+	// recursion or a stack beyond the path slice used to find where the
+	// cycle starts. Self-parents are a one-node cycle and are already
+	// covered by the self-parent rule above, so they're skipped here.
+	const (
+		white = iota
+		gray
+		black
+	)
+	color := make(map[int]int, len(byPID))
+	pids := make([]int, 0, len(byPID))
+	for pid := range byPID {
+		pids = append(pids, pid)
+	}
+	sort.Ints(pids)
+
+	for _, start := range pids {
+		if color[start] != white {
+			continue
+		}
+		var path []int
+		cur := start
+	walk:
+		for {
+			switch color[cur] {
+			case black:
+				break walk
+			case gray:
+				idx := 0
+				for i, v := range path {
+					if v == cur {
+						idx = i
+						break
+					}
+				}
+				cycle := path[idx:]
+				if len(cycle) > 1 {
+					var chain strings.Builder
+					for _, v := range cycle {
+						fmt.Fprintf(&chain, "%d -> ", v)
+					}
+					chain.WriteString(strconv.Itoa(cycle[0]))
+					for _, v := range cycle {
+						findings = append(findings, Finding{byPID[v].line, "parent-cycle",
+							fmt.Sprintf("pid %d is part of a parent cycle: %s", v, chain.String())})
+					}
+				}
+				break walk
+			}
+			color[cur] = gray
+			path = append(path, cur)
+			p, ok := byPID[cur]
+			if !ok || p.ppid == 0 {
+				break walk
+			}
+			cur = p.ppid
+		}
+		for _, v := range path {
+			color[v] = black
+		}
+	}
+
 	sort.Slice(findings, func(i, j int) bool {
 		if findings[i].Line != findings[j].Line {
 			return findings[i].Line < findings[j].Line
