@@ -197,6 +197,49 @@ func TestFindingsAreSortedByLine(t *testing.T) {
 	}
 }
 
+func TestPsHeaderRowIsSkipped(t *testing.T) {
+	input := `  PID  PPID S COMMAND
+    1     0 S init
+  100     1 S sshd
+`
+	findings := mustLint(t, input)
+	if len(findings) != 0 {
+		t.Fatalf("expected no findings, got %v", findings)
+	}
+}
+
+func TestPsHeaderRowLineNumbersStillMatchInput(t *testing.T) {
+	input := `PID PPID S COMMAND
+1 0 S init
+1 0 S init
+`
+	findings := mustLint(t, input)
+	var dup Finding
+	found := false
+	for _, f := range findings {
+		if f.Rule == "duplicate-pid" {
+			dup = f
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected duplicate-pid, got %v", findings)
+	}
+	if dup.Line != 3 {
+		t.Fatalf("expected duplicate reported on line 3, got %d", dup.Line)
+	}
+}
+
+func TestHeaderLikeRowOnlyRecognizedOnFirstContentLine(t *testing.T) {
+	input := `1 0 S init
+PID PPID S COMMAND
+`
+	findings := mustLint(t, input)
+	if !rules(findings)["parse-error"] {
+		t.Fatalf("expected a header-like row later in the input to be a parse-error, got %v", findings)
+	}
+}
+
 func TestCommWithSpacesIsPreserved(t *testing.T) {
 	input := "1 0 S kworker/0:1-events\n"
 	findings := mustLint(t, input)

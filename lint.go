@@ -20,6 +20,17 @@ func (f Finding) String() string {
 	return fmt.Sprintf("%d: %s: %s", f.Line, f.Rule, f.Message)
 }
 
+// isHeaderRow reports whether fields look like the header line ps prints
+// before the data, e.g. `PID PPID S COMMAND` for `ps -eo pid,ppid,state,comm`.
+// Matching on the first two column names (rather than the exact set, which
+// varies with the -eo spec used) is enough to tell it apart from a real
+// process line, since a real pid/ppid pair is always numeric.
+func isHeaderRow(fields []string) bool {
+	return len(fields) >= 2 &&
+		strings.EqualFold(fields[0], "PID") &&
+		strings.EqualFold(fields[1], "PPID")
+}
+
 // process is the small amount of state kept per process. Everything else
 // about the line (its original text, surrounding whitespace, comments) is
 // discarded once parsed.
@@ -53,6 +64,7 @@ func Lint(r io.Reader) ([]Finding, error) {
 	byPID := make(map[int]process)
 
 	lineNo := 0
+	sawContent := false
 	for scanner.Scan() {
 		lineNo++
 		line := strings.TrimSpace(scanner.Text())
@@ -61,6 +73,18 @@ func Lint(r io.Reader) ([]Finding, error) {
 		}
 
 		fields := strings.Fields(line)
+
+		// The first content line gets one extra check: `ps -eo
+		// pid,ppid,state,comm` prints a header row before the data, and
+		// piping that straight in (instead of trimming it first) is the
+		// common case worth supporting rather than erroring on.
+		if !sawContent {
+			sawContent = true
+			if isHeaderRow(fields) {
+				continue
+			}
+		}
+
 		if len(fields) < 3 {
 			findings = append(findings, Finding{lineNo, "parse-error",
 				"expected at least 3 fields: pid ppid state [comm]"})

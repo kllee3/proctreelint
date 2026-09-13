@@ -67,8 +67,12 @@ rest of the findings.
 Pass a filename, or `-` (or nothing) to read from stdin:
 
 ```
-ps -eo pid,ppid,state,comm | tail -n +2 | go run . -
+ps -eo pid,ppid,state,comm | go run . -
 ```
+
+The header row ps prints (`PID PPID S COMMAND`) is recognized and skipped
+automatically when it's the first content line, so there's no need to
+pipe through `tail -n +2` first.
 
 ## Rules
 
