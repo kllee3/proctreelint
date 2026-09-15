@@ -74,6 +74,28 @@ The header row ps prints (`PID PPID S COMMAND`) is recognized and skipped
 automatically when it's the first content line, so there's no need to
 pipe through `tail -n +2` first.
 
+Pass `--format json` to get findings as a JSON array instead of one
+line per finding, for feeding into something else:
+
+```
+go run . --format json examples/sample.pt
+```
+
+```json
+[
+  {
+    "file": "examples/sample.pt",
+    "line": 5,
+    "rule": "zombie-with-children",
+    "message": "pid 501 is a zombie (state Z) but still has children reparented to it"
+  },
+  ...
+]
+```
+
+With no findings this prints `[]` rather than nothing, so the output is
+always valid JSON regardless of the exit code.
+
 ## Rules
 
 | rule                   | flags                                                          |

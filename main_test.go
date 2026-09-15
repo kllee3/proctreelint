@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -51,6 +52,61 @@ func TestRunExitsTwoOnMissingFile(t *testing.T) {
 	code, err := run([]string{filepath.Join(t.TempDir(), "does-not-exist.pt")}, &out)
 	if err == nil {
 		t.Fatalf("expected an error for a missing file")
+	}
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+}
+
+func TestRunFormatJSONEmitsFindingsAsArray(t *testing.T) {
+	path := writeSample(t, "9012 9012 S loopy\n")
+	var out bytes.Buffer
+	code, err := run([]string{"--format", "json", path}, &out)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+
+	var got []jsonFinding
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, out.String())
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 finding, got %d: %v", len(got), got)
+	}
+	if got[0].File != path || got[0].Line != 1 || got[0].Rule != "self-parent" {
+		t.Fatalf("unexpected finding: %+v", got[0])
+	}
+}
+
+func TestRunFormatJSONEmitsEmptyArrayOnCleanInput(t *testing.T) {
+	path := writeSample(t, "1 0 S init\n")
+	var out bytes.Buffer
+	code, err := run([]string{"--format", "json", path}, &out)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+
+	var got []jsonFinding
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, out.String())
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected no findings, got %v", got)
+	}
+}
+
+func TestRunUnknownFormatIsAnError(t *testing.T) {
+	path := writeSample(t, "1 0 S init\n")
+	var out bytes.Buffer
+	code, err := run([]string{"--format", "xml", path}, &out)
+	if err == nil {
+		t.Fatalf("expected an error for an unknown format")
 	}
 	if code != 2 {
 		t.Fatalf("expected exit code 2, got %d", code)
